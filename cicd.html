@@ -1,0 +1,316 @@
+<html>
+<head>
+    <style type="text/css">
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: sans-serif;
+        }
+
+        div {
+            margin: 0;
+            padding: 0;
+        }
+
+        .cont {
+            display: flex;
+            width: 80%;
+            align-items: center;
+        }
+
+        .p-o,
+        .s-o {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: row;
+            box-sizing: border-box;
+            height: 300px;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        .cloud {
+            border: 8px solid #333;
+            height: 150px;
+            flex-grow: 1;
+            max-width: 20%;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 48px;
+            font-weight: bold;
+            color: #333;
+            transition: all 0.25s linear;
+        }
+
+        .cloud.primary {
+            background: deepskyblue;
+        }
+
+        .cloud.secondary {
+            background: lightgreen;
+        }
+
+        .cloud.active {
+            border-style: solid;
+        }
+
+        .cloud.inactive {
+            border: 8px dashed #777;
+            color: #777;
+        }
+
+        .cloud.deploying {
+            background-image: repeating-linear-gradient(
+                    -45deg,
+                    transparent,
+                    transparent 1rem,
+                    rgba(255, 255, 255, 0.35) 1rem,
+                    rgba(255, 255, 255, 0.35) 2rem
+            );
+            background-size: 200% 200%;
+            animation: barberpole 10s linear infinite;
+            height: 170px;
+        }
+
+        @keyframes barberpole {
+            100% {
+                background-position: 100% 100%;
+            }
+        }
+    </style>
+    <script type="text/javascript">
+      var states = [
+        {
+          title: '0. Initial State',
+          subtitle: 'All clouds (primary/secondary) are active',
+          action: function () {
+            for (var index = allClouds.length - 1; index >= 0; index--) {
+              var parentClass = allClouds[index].parentNode.className === 'p-o' ? 'primary' : 'secondary';
+              allClouds[index].className = 'cloud active ' + parentClass;
+              allClouds[index].innerText = '1.0.0';
+            }
+          }
+        },
+        {
+          title: '1. Deactivate all primary clouds',
+          subtitle: 'To prevent any impact to live traffic',
+          action: function () {
+            clearLoops();
+            deactivatePrimary('1.0.0');
+          }
+        },
+        {
+          title: '2. Release new version',
+          subtitle: 'This will apply changes only to secondary clouds (currently active)',
+          action: function () {
+            for (var index = allClouds.length - 1; index >= 0; index--) {
+              if (allClouds[index].classList.contains('primary')) {
+                allClouds[index].classList.remove('active');
+                allClouds[index].classList.add('inactive');
+              } else if (allClouds[index].classList.contains('secondary')) {
+                allClouds[index].classList.remove('inactive');
+                allClouds[index].classList.add('active');
+              }
+              allClouds[index].innerText = '1.0.0';
+            }
+            secondaryRelease();
+          }
+        },
+        {
+          title: '3. Switch clouds',
+          subtitle: 'Activate all primary and switch priority, then deactivate the new primary',
+          action: function () {
+            clearLoops();
+            preparePrimary();
+            currentTimeout = setTimeout(function () {
+              activatePrimary(true);
+            }, 1500);
+          }
+        },
+        {
+          title: '4. Release new version',
+          subtitle: 'This will apply changes only to secondary clouds (formerly primary ones)',
+          action: function () {
+            for (var index = allClouds.length - 1; index >= 0; index--) {
+              var truePrimary = allClouds[index].parentNode.classList.contains('p-o');
+              if (truePrimary) {
+                allClouds[index].className = 'cloud secondary active';
+                allClouds[index].innerText = '1.0.0';
+              } else {
+                allClouds[index].className = 'cloud primary inactive';
+                allClouds[index].innerText = '1.0.1';
+              }
+            }
+            secondaryRelease();
+          }
+        },
+        {
+          title: '5. Final switch',
+          subtitle: 'To get the clouds back to their original state',
+          action: function () {
+            clearLoops();
+            for (var index = allClouds.length - 1; index >= 0; index--) {
+              var truePrimary = allClouds[index].parentNode.classList.contains('p-o');
+              if (truePrimary) {
+                allClouds[index].className = 'cloud secondary active';
+                allClouds[index].innerText = '1.0.1';
+              } else {
+                allClouds[index].className = 'cloud primary inactive';
+                allClouds[index].innerText = '1.0.1';
+              }
+            }
+            currentTimeout = setTimeout(function () {
+              activatePrimary(false);
+            }, 1500);
+          }
+        }
+      ];
+
+      var currentState = 0;
+      var currentInterval = 0;
+      var currentTimeout = 0;
+      var allClouds;
+
+      function clearLoops() {
+        if (currentInterval !== 0) {
+          clearInterval(currentInterval);
+        }
+
+        if (currentTimeout !== 0) {
+          clearTimeout(currentTimeout);
+        }
+      }
+
+      function preparePrimary() {
+        for (var index = allClouds.length - 1; index >= 0; index--) {
+          var truePrimary = allClouds[index].parentNode.classList.contains('p-o');
+          if (truePrimary) {
+            allClouds[index].className = 'cloud primary inactive';
+            allClouds[index].innerText = '1.0.0';
+          } else {
+            allClouds[index].className = 'cloud secondary active';
+            allClouds[index].innerText = '1.0.1';
+          }
+        }
+      }
+
+      function activatePrimary(withFinalDeactivation) {
+        for (var index = allClouds.length - 1; index >= 0; index--) {
+          if (allClouds[index].classList.contains('primary')) {
+            allClouds[index].classList.remove('inactive');
+            allClouds[index].classList.add('active');
+          }
+        }
+        currentTimeout = setTimeout(function () {
+          switchPriority(withFinalDeactivation);
+        }, 1500);
+      }
+
+      function switchPriority(withFinalDeactivation) {
+        for (var index = allClouds.length - 1; index >= 0; index--) {
+          if (allClouds[index].classList.contains('primary')) {
+            allClouds[index].classList.remove('primary');
+            allClouds[index].classList.add('secondary');
+          } else if (allClouds[index].classList.contains('secondary')) {
+            allClouds[index].classList.remove('secondary');
+            allClouds[index].classList.add('primary');
+          }
+        }
+        if (withFinalDeactivation) {
+          currentTimeout = setTimeout(function () {
+            deactivatePrimary();
+          }, 1500);
+        }
+      }
+
+      function deactivatePrimary(versionChange) {
+        for (var index = allClouds.length - 1; index >= 0; index--) {
+          if (allClouds[index].classList.contains('primary')) {
+            allClouds[index].classList.remove('active');
+            allClouds[index].classList.add('inactive');
+          } else if (allClouds[index].classList.contains('deploying')) {
+            allClouds[index].classList.remove('deploying');
+          }
+          if (versionChange) {
+            allClouds[index].innerText = versionChange;
+          }
+        }
+      }
+
+      function secondaryRelease() {
+        var secondaryClouds = document.getElementsByClassName('secondary');
+
+        for (var index = secondaryClouds.length - 1; index >= 0; index--) {
+          secondaryClouds[index].className = 'cloud secondary active';
+          secondaryClouds[index].innerText = '1.0.0';
+        }
+
+        currentTimeout = setTimeout(function () {
+          for (var index = secondaryClouds.length - 1; index >= 0; index--) {
+            secondaryClouds[index].classList.add('deploying');
+            secondaryClouds[index].innerText = '1.0.0';
+          }
+          currentTimeout = setTimeout(function () {
+            for (var index = secondaryClouds.length - 1; index >= 0; index--) {
+              secondaryClouds[index].classList.remove('deploying');
+              secondaryClouds[index].innerText = '1.0.1';
+            }
+          }, 2000);
+        }, 1500);
+      }
+
+      function setState(newState) {
+        document.getElementById('current').innerText = states[newState].title;
+        document.getElementById('subtitle').innerText = states[newState].subtitle ? states[newState].subtitle : '';
+        states[newState].action();
+      }
+
+      function nextState() {
+        if (currentState === states.length - 1) {
+          currentState = -1;
+        }
+        setState(++currentState);
+      }
+
+      function prevState() {
+        if (currentState === 0) {
+          currentState = states.length;
+        }
+        setState(--currentState);
+      }
+
+      function init() {
+        allClouds = document.getElementsByClassName('cloud');
+        setState(currentState);
+      }
+    </script>
+</head>
+<body onload="init();">
+<h1>
+    <a href="#" onclick="prevState();">&lt;</a>
+    <span id="current">undef</span>
+    <a href="#" onclick="nextState();">&gt;</a>
+</h1>
+<h2><span id="subtitle">&nbsp;</span></h2>
+<div class="cont">
+    <div class="p-o">
+        <div class="cloud">1.0.0</div>
+        <div class="cloud">1.0.0</div>
+        <div class="cloud">1.0.0</div>
+        <div class="cloud">1.0.0</div>
+    </div>
+    <div class="s-o">
+        <div class="cloud">1.0.0</div>
+        <div class="cloud">1.0.0</div>
+        <div class="cloud">1.0.0</div>
+        <div class="cloud">1.0.0</div>
+    </div>
+</div>
+</body>
+</html>
